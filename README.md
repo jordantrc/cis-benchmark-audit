@@ -21,7 +21,7 @@ Default region name [None]: us-east-1
 Default output format [None]:
 ```
 
-Once configured, simply run the script. The output will be sent to a single file, *aws_audt_YYYYMMDD-HHMM.log*.
+Once configured, simply run the script. The output will be sent to a single file, *aws_audit_YYYYMMDD-HHMM.log*.
 
 ```bash
 ./cis_aws_audit.sh
