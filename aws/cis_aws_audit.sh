@@ -6,6 +6,16 @@ echo "Based on version 1.3.0 of the CIS Benchmark."
 datestamp=$(date "+%Y%m%d-%H%M")
 logfile="aws_audit_$datestamp.log"
 section_header="======================================"
+prerequisites=("aws" "jq")
+echo "Sending script output to ${logfile}"
+
+preprequisite_check() {
+    which $1 > /dev/null
+    if [[ "$?" -ne 0 ]]; then
+        echo "[-] missing prerequisite $1"
+        exit 1
+    fi
+}
 
 audit_requirement() {  
     echo $section_header >> $logfile
@@ -28,13 +38,19 @@ tab_delimited_to_array() {
     IFS=$SAVEIFS   # Restore IFS
 }
 
+# check that prerequisites are installed
+for i in "${!prerequisites[@]}"
+do
+    preprequisite_check ${prerequisites[$i]}
+done
+
 # show information about AWS CLI configuration
 echo $section_header >> $logfile
 echo "Level 1 Audit" >> $logfile
 echo `date` >> $logfile
 echo "" >> $logfile
 echo "AWS Configurations:" >> $logfile
-echo `aws configure list` >> $logfile
+aws configure list >> $logfile
 echo "" >> $logfile
 
 # list enabled regions
@@ -90,16 +106,31 @@ audit_requirement "1.14 - Ensure access keys are rotated every 90 days or less" 
 
 echo $section_header >> $logfile
 echo "1.15 - Ensure IAM Users Receive Permissions Only Through Groups" >> $logfile
-for i in "${!users[@]}"
-do
+for i in "${!users[@]}"; do
     echo "IAM attached user policies for ${users[$i]}:" >> $logfile
     aws iam list-attached-user-policies --user-name ${users[$i]} >> $logfile
     aws iam list-user-policies --user-name ${users[$i]} >> $logfile
 done
 
-#### NEED TO FIX THIS ONE TO ITERATE THROUGH POLICIES
-#audit_requirement "1.16 - Ensure IAM policies that allow full \"*:*\" administrative privileges are not attached" "aws iam list-policies --only-attached --output text;\
-#aws iam get-policy-version --policy-arn <policy_arn> --version-id <version>"
+echo $section_header >> $logfile
+echo "1.16 - Ensure IAM policies that allow full \"*:*\" administrative privileges are not attached" >> $logfile
+policy_arns=$(aws iam list-policies --only-attached | jq '.Policies[].Arn, .Policies[].DefaultVersionId')
+policy_arns=($policy_arns)
+len_policy_arns=${#policy_arns[@]}
+if [[ ${len_policy_arns} -eq 0 ]]; then
+    echo "no attached policies found" >> $logfile
+else
+    num_policies=$(expr ${len_policy_arns} / 2)
+    last_index=$(expr ${num_policies} - 1)
+    echo "found ${num_policies} attached policies" >> $logfile
+    for i in $(seq 0 $last_index); do
+        version_index=$(expr $i + $num_policies)
+        policy_arn=$(echo ${policy_arns[$i]} | tr -d '"')
+        policy_version=$(echo ${policy_arns[$version_index]} | tr -d '"')
+        echo "policy arn: ${policy_arn}, version: ${policy_version}" >> $logfile
+        aws iam get-policy-version --policy-arn ${policy_arn} --version-id ${policy_version} >> $logfile
+    done
+fi
 
 audit_requirement "1.17 - Ensure a support role has been created to manage incidents with AWS Support" "aws iam list-policies --query \"Policies[?PolicyName == 'AWSSupportAccess']\";\
 aws iam list-entities-for-policy --policy-arn arn:aws:iam::aws:policy/AWSSupportAccess"
@@ -114,8 +145,7 @@ audit_requirement "1.19 - Ensure that all the expired SSL/TLS certificates store
 echo $section_header >> $logfile
 echo "1.21 - Ensure that IAM Access analyzer is enabled" >> $logfile
 analyzers=( $(aws accessanalyzer list-analyzers | grep "\"name\":" | awk '{print $2}' | cut -d, -f 1 | tr -d '"') )
-for i in "${!analyzers[@]}"
-do
+for i in "${!analyzers[@]}"; do
     echo "Status of ${analyzers[$i]}:" >> $logfile
     aws accessanalyzer get-analyzer --analyzer-name ${analyzers[$i]} | grep status >> $logfile
 done
