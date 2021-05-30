@@ -218,3 +218,61 @@ echo $section_header >> $logfile
 echo "" >> $logfile
 
 audit_requirement "1.6 - Ensure hardware MFA is enabled for the \"root user\" account" "aws iam list-virtual-mfa-devices"
+
+echo $section_header >> $logfile
+echo "LEVEL 2 SECTION 2: STORAGE" | tee -a $logfile
+echo $section_header >> $logfile
+echo "" >> $logfile
+
+echo $section_header >> $logfile
+echo "2.1.1 - Ensure all S3 buckets employ encryption-at-rest" >> $logfile
+for i in "${!buckets[@]}"; do
+    echo "bucket ${buckets[$i]}:" >> $logfile
+    aws s3api get-bucket-encryption --bucket ${buckets[$i]} >> $logfile 2>&1
+done
+
+echo $section_header >> $logfile
+echo "2.1.2 - Ensure S3 Bucket Policy allows HTTPS requests" >> $logfile
+for i in "${!buckets[@]}"; do
+    echo "bucket ${buckets[$i]}:" >> $logfile
+    aws s3api get-bucket-policy --bucket ${buckets[$i]} | grep aws:SecureTransport >> $logfile 2>&1
+done
+
+echo $section_header >> $logfile
+echo "2.2.1 - Ensure EBS volume encryption is enabled" >> $logfile
+for i in "${!aws_regions[@]}"; do
+    echo "region ${aws_regions[$i]}:" >> $logfile
+    aws --region ${aws_regions[$i]} ec2 get-ebs-encryption-by-default >> $logfile 2>&1
+done
+
+echo $section_header >> $logfile
+echo "LEVEL 2 SECTION 3: LOGGING" | tee -a $logfile
+echo $section_header >> $logfile
+echo "" >> $logfile
+
+audit_requirement "3.2 - Ensure CloudTrail log file validation is enabled" "aws cloudtrail describe-trails"
+
+audit_requirement "3.7 - Ensure CloudTrail logs are encrypted at rest using KMS CMKs" "aws cloudtrail describe-trails"
+
+echo $section_header >> $logfile
+echo "3.8 - Ensure rotation for customer created CMKs is enabled"  >> $logfile
+keys=( $(aws kms list-keys --query 'Keys[*].KeyId' | grep '"' | awk '{print $1}' | tr -d '"' | tr -d ',') )
+for i in "${!keys[@]}"; do
+    echo "key ${keys[$i]}:" >> $logfile
+    aws kms get-key-rotation-status --key-id ${keys[$i]} >> $logfile 2>&1
+done
+
+echo $section_header >> $logfile
+echo "3.10-3.11 - Ensure that Object-level logging for read/write events is enabled for S3 bucket"  >> $logfile
+for i in "${!aws_regions[@]}"; do
+    region_trails=( $(aws cloudtrail list-trails --region ${aws_regions[$i]} --query Trails[*].Name | grep '"' | awk '{print $1}' | tr -d '"' | tr -d ',') )
+    for j in "${!region_trails[@]}"; do
+        echo "region ${aws_regions[$i]}, trail ${region_trails[$j]}:" >> $logfile
+        aws cloudtrail get-event-selectors --region ${aws_regions[$i]} --trail-name ${region_trails[$j]} --query EventSelectors[*].DataResources[] >> $logfile 2>&1
+    done
+done
+
+echo $section_header >> $logfile
+echo "LEVEL 2 SECTION 4: MONITORING" | tee -a $logfile
+echo $section_header >> $logfile
+echo "" >> $logfile
