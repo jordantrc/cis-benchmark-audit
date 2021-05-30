@@ -46,7 +46,6 @@ done
 
 # show information about AWS CLI configuration
 echo $section_header >> $logfile
-echo "Level 1 Audit" >> $logfile
 echo `date` >> $logfile
 echo "" >> $logfile
 echo "AWS Configurations:" >> $logfile
@@ -69,7 +68,7 @@ done
 
 # start auditing
 echo $section_header >> $logfile
-echo "AUDITING SECTION 1: IAM" | tee -a $logfile
+echo "LEVEL 1 SECTION 1: IAM" | tee -a $logfile
 echo $section_header >> $logfile
 echo "" >> $logfile
 
@@ -137,49 +136,85 @@ aws iam list-entities-for-policy --policy-arn arn:aws:iam::aws:policy/AWSSupport
 
 audit_requirement "1.19 - Ensure that all the expired SSL/TLS certificates stored in AWS IAM are removed" "aws iam list-server-certificates"
 
-#### NEED TO FIX THIS TO ITERATE THROUGH BUCKETS
-#audit_requirement "Requirement 1.20 - Ensure that S3 Buckets are configured with 'Block public access (bucket settings)'" "aws s3 ls;\
-#aws s3api get-public-access-block --bucket <name-of-the-bucket>"
+echo $section_header >> $logfile
+echo "Requirement 1.20 - Ensure that S3 Buckets are configured with 'Block public access (bucket settings)'" >> $logfile
+buckets=( $(aws s3 ls | cut -d " " -f 3) )
+for i in "${!buckets[@]}"; do
+    echo "bucket ${buckets[$i]}:" >> $logfile
+    aws s3api get-public-access-block --bucket ${buckets[$i]} >> $logfile 2>&1
+done
 
-# get list of Access Analyzers:
 echo $section_header >> $logfile
 echo "1.21 - Ensure that IAM Access analyzer is enabled" >> $logfile
 analyzers=( $(aws accessanalyzer list-analyzers | grep "\"name\":" | awk '{print $2}' | cut -d, -f 1 | tr -d '"') )
 for i in "${!analyzers[@]}"; do
-    echo "Status of ${analyzers[$i]}:" >> $logfile
+    echo "analyzer ${analyzers[$i]}:" >> $logfile
     aws accessanalyzer get-analyzer --analyzer-name ${analyzers[$i]} | grep status >> $logfile
 done
 
 echo $section_header >> $logfile
-echo "AUDITING SECTION 2: Storage" | tee -a $logfile
+echo "LEVEL 1 SECTION 2: Storage" | tee -a $logfile
 echo $section_header >> $logfile
 echo "" >> $logfile
 
-#### FIX THIS TO ITERATE THROUGH S3 BUCKETS
-#audit_requirement "Requirement 2.1.1 - Ensure all S3 buckets employ encryption-at-rest" "aws s3 ls; aws s3api get-bucket-encryption --bucket <bucket name>"
-
-#### FIX TO ITERATE THROUGH REGIONS
-#audit_requirement "2.2.1 - Ensure EBS volume encryption is enabled" "aws --region <region> ec2 get-ebs-encryption-by-default"
+echo $section_header >> $logfile
+echo "Requirement 2.1.1 - Ensure all S3 buckets employ encryption-at-rest" >> $logfile
+for i in "${!buckets[@]}"; do
+    echo "bucket ${buckets[$i]}:" >> $logfile
+    aws s3api get-bucket-encryption --bucket ${buckets[$i]} >> $logfile 2>&1
+done
 
 echo $section_header >> $logfile
-echo "AUDITING SECTION 3: Logging" | tee -a $logfile
+echo "2.2.1 - Ensure EBS volume encryption is enabled" >> $logfile
+for i in "${!aws_regions[@]}"; do
+    echo "region ${aws_regions[$i]}:" >> $logfile
+    aws --region ${aws_regions[$i]} ec2 get-ebs-encryption-by-default >> $logfile 2>&1
+done
+
+echo $section_header >> $logfile
+echo "LEVEL 1 SECTION 3: Logging" | tee -a $logfile
 echo $section_header >> $logfile
 echo "" >> $logfile
 
-#### FIX TO ITERATE THROUGH TRAILS
-#audit_requirement "3.1 - Ensure CloudTrail is enabled in all regions" "aws cloudtrail describe-trails; aws cloudtrail get-trail-status --name <trailname shown in describe-trails>; aws cloudtrail get-event-selectors --trail-name <trailname shown in describe-trails>"
+echo $section_header >> $logfile
+echo "3.1 - Ensure CloudTrail is enabled in all regions" >> $logfile
+trails=( $(aws cloudtrail describe-trails --query 'trailList[*].Name' | grep '"' | awk '{print $1}' | tr -d '"' | tr -d ","))
+for i in "${!trails[@]}"; do
+    echo "trail ${trails[$i]}:" >> $logfile
+    aws cloudtrail get-trail-status --name ${trails[$i]} >> $logfile 2>&1
+    aws cloudtrail get-event-selectors --trail-name ${trails[$i]} >> $logfile 2>&1
+done
 
-#### FIX TO ITERATE THROUGH BUCKETS
-#audit_requirement "3.3 - Ensure the S3 bucket used to store CloudTrail logs is not publicly accessible" "aws cloudtrail describe-trails --query 'trailList[*].S3BucketName'; \
-#aws s3api get-bucket-acl --bucket <s3_bucket_for_cloudtrail> --query 'Grants[?Grantee.URI== `https://acs.amazonaws.com/groups/global/AllUsers` ]'; \
-#aws s3api get-bucket-acl --bucket <s3_bucket_for_cloudtrail> --query 'Grants[?Grantee.URI== `https://acs.amazonaws.com/groups/global/Authenticated Users` ]'; \
-#aws s3api get-bucket-policy --bucket <s3_bucket_for_cloudtrail> "
+echo $section_header >> $logfile
+echo "3.3 - Ensure the S3 bucket used to store CloudTrail logs is not publicly accessible" >> $logfile
+cloudtrail_buckets=( $(aws cloudtrail describe-trails --query 'trailList[*].S3BucketName' | grep '"' | awk '{print $1}' | tr -d '"' | tr -d ","))
+for i in "${!cloudtrail_buckets[@]}"; do
+    echo "cloudtrail bucket ${cloudtrail_buckets[$i]}:" >> $logfile
+    aws s3api get-bucket-acl --bucket ${cloudtrail_buckets[$i]} --query "Grants[?Grantee.URI== 'https://acs.amazonaws.com/groups/global/AllUsers']" >> $logfile 2>&1
+    aws s3api get-bucket-acl --bucket ${cloudtrail_buckets[$i]} --query "Grants[?Grantee.URI== 'https://acs.amazonaws.com/groups/global/Authenticated Users']" >> $logfile 2>&1
+    aws s3api get-bucket-policy --bucket ${cloudtrail_buckets[$i]} >> $logfile 2>&1
+done
 
-#### FIX TO ITERATE THROUGH TRAILS
-#audit_requirement "3.4 - Ensure CloudTrail trails are integrated with CloudWatch Logs" "aws cloudtrail describe-trails; aws cloudtrail get-trail-status --name <trail_name>"
+echo $section_header >> $logfile
+echo "3.4 - Ensure CloudTrail trails are integrated with CloudWatch Logs" >> $logfile
+for i in "${!trails[@]}"; do
+    echo "trail ${trails[$i]}:" >> $logfile
+    aws cloudtrail get-trail-status --name ${trails[$i]} >> $logfile 2>&1
+done
 
 audit_requirement "3.5 - Ensure AWS Config is enabled in all regions" "aws configservice describe-configuration-recorders"
 
-#### FIX TO ITERATE THROUGH BUCKETS
-#audit_requirement "3.6 - Ensure S3 bucket access logging is enabled on the CloudTrail S3 bucket" "aws cloudtrail describe-trails --query 'trailList[*].S3BucketName'; \
-#aws s3api get-bucket-logging --bucket <s3_bucket_for_cloudtrail>"
+echo $section_header >> $logfile
+echo "3.6 - Ensure S3 bucket access logging is enabled on the CloudTrail S3 bucket" >> $logfile
+for i in "${!cloudtrail_buckets[@]}"; do
+    echo "cloudtrail bucket ${cloudtrail_buckets[$i]}:" >> $logfile
+    aws s3api get-bucket-logging --bucket ${cloudtrail_buckets[$i]} >> $logfile 2>&1
+done
+
+# Level 2 Audit
+echo $section_header >> $logfile
+echo "LEVEL 2 SECTION 1: IAM" | tee -a $logfile
+echo $section_header >> $logfile
+echo "" >> $logfile
+
+audit_requirement "1.6 - Ensure hardware MFA is enabled for the \"root user\" account" "aws iam list-virtual-mfa-devices"
