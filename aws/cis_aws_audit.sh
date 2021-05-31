@@ -27,14 +27,14 @@ audit_requirement() {
 newline_delimited_to_array() {
     SAVEIFS=$IFS   # Save current IFS
     IFS=$'\n'      # Change IFS to new line
-    array=($1) # split to array
+    array=($1)     # split to array
     IFS=$SAVEIFS   # Restore IFS
 }
 
 tab_delimited_to_array() {
     SAVEIFS=$IFS   # Save current IFS
     IFS=$'\t'      # Change IFS to new line
-    array=($1) # split to array
+    array=($1)     # split to array
     IFS=$SAVEIFS   # Restore IFS
 }
 
@@ -273,6 +273,17 @@ for i in "${!aws_regions[@]}"; do
 done
 
 echo $section_header >> $logfile
-echo "LEVEL 2 SECTION 4: MONITORING" | tee -a $logfile
+echo "LEVEL 2 SECTION 5: NETWORKING" | tee -a $logfile
 echo $section_header >> $logfile
 echo "" >> $logfile
+
+echo "5.4 - Ensure routing tables for VPC peering are \"least access\"" >> $logfile
+vpcs=( $(aws ec2 describe-vpcs --query 'Vpcs[*].VpcId' | grep '"' | awk '{print $1}' | tr -d '"' | tr -d ",") )
+for i in "${!vpcs[@]}"; do
+    echo "vpc ${vpcs[$i]}:" >> $logfile
+    aws ec2 describe-route-tables --filter "Name=vpc-id,Values=${vpcs[$i]}" --query "RouteTables[*].{RouteTableId:RouteTableId, VpcId:VpcId, Routes:Routes, AssociatedSubnets:Associations[*].SubnetId}" >> $logfile 2>&1
+done
+
+echo "Script complete" | tee -a $logfile
+
+exit 0
