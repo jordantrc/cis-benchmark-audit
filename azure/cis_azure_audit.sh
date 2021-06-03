@@ -343,7 +343,8 @@ echo "LEVEL 2 SECTION 9: AppService" | tee -a $logfile
 echo $section_header >> $logfile
 echo "" >> $logfile
 
-echo -e "9.1, 9.4 - Ensure App Service Authentication is set on Azure App Service\nEnsure the web app has 'Client Certificates (Incoming client certificates)' set to 'On'" >> $logfile
+echo "9.1 - Ensure App Service Authentication is set on Azure App Service" >> $logfile
+echo "9.4 - Ensure the web app has 'Client Certificates (Incoming client certificates)' set to 'On'" >> $logfile
 webapps=( $(az webapp list --query '[*].[name,resourceGroup]' | grep '"' | awk '{print $1}' | sed 's/[\"|,]//g') )
 len_webapps=${#webapps[@]}
 if [[ ${len_webapps} -eq 0 ]]; then
