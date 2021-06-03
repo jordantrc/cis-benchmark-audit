@@ -44,7 +44,7 @@ AUDITING SECTION 3: Logging
 
 ### Azure Setup and Execution
 
-1. Login with the az cli command `az cli`.
+1. Login with the az cli command `az login`.
 2. Run the script to create the benchmark log file.
 
 ```bash
