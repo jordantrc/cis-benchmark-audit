@@ -99,8 +99,8 @@ echo $section_header >> $logfile
 echo "3.2 - Ensure that storage account access keys are periodically regenerated" >> $logfile
 storage_accounts=( $(az storage account list --query '[*].id' | grep '"' | awk '{print $1}' | sed 's/[\"|,]//g') )
 for i in "${!storage_accounts[@]}"; do
-    echo "storage account: ${storage_account[$i]}:" >> $logfile
-    az monitor activity-log list --namespace Microsoft.Storage --offset 90d --query "[?contains(authorization.action, 'regenerateKey')]" --resource-id ${storage_account[$i]} >> $logfile 2>&1
+    echo "storage account: ${storage_accounts[$i]}:" >> $logfile
+    az monitor activity-log list --namespace Microsoft.Storage --offset 90d --query "[?contains(authorization.action, 'regenerateKey')]" --resource-id ${storage_accounts[$i]} >> $logfile 2>&1
 done
 
 echo $section_header >> $logfile
