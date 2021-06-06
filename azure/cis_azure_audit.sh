@@ -205,10 +205,10 @@ if [[ ${len_vms} -eq 0 ]]; then
     echo "no vms found" >> $logfile
 else
     num_vms=$(expr ${len_vms} / 2)
-    last_index=$(expr ${num_vms} - 1)
+    last_index=$(expr ${len_vms} - 1)
     echo "found ${num_vms} vms" >> $logfile
     for i in $(seq 0 $last_index); do
-        if ! ((i % 2)); then
+        if !((i % 2)); then
             rgroup_index=$(expr $i + 1)
             resource_group=$(echo ${vms[$rgroup_index]})
             vm=$(echo ${vms[$i]})
@@ -325,10 +325,10 @@ if [[ ${len_vms} -eq 0 ]]; then
     echo "no vms found" >> $logfile
 else
     num_vms=$(expr ${len_vms} / 2)
-    last_index=$(expr ${num_vms} - 1)
+    last_index=$(expr ${len_vms} - 1)
     echo "found ${num_vms} vms" >> $logfile
     for i in $(seq 0 $last_index); do
-        if ! ((i % 2)); then
+        if !((i % 2)); then
             rgroup_index=$(expr $i + 1)
             resource_group=$(echo ${vms[$rgroup_index]})
             vm=$(echo ${vms[$i]})
