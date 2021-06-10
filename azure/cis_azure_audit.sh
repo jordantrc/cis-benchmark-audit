@@ -93,7 +93,7 @@ echo "LEVEL 1 SECTION 3: Storage Accounts" | tee -a $logfile
 echo $section_header >> $logfile
 echo "" >> $logfile
 
-audit_requirement "3.1 - az storage account list --query '[*].[name,enableHttpsTrafficOnly]'"
+audit_requirement "3.1 - Ensure that 'Secure transfer required' is set to 'Enabled'" "az storage account list --query '[*].[name,enableHttpsTrafficOnly]'"
 
 echo $section_header >> $logfile
 echo "3.2 - Ensure that storage account access keys are periodically regenerated" >> $logfile
